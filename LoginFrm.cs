@@ -79,7 +79,6 @@ namespace Transfer_app
                     return;
                 }
 
-                loading = true;
                 var client = new RestClient("http://102.209.3.101:9500");
 
                 var request = new RestRequest("/WMSBKR/public/api/User/login", Method.POST);
@@ -95,26 +94,25 @@ namespace Transfer_app
                 if (!response.IsSuccessful)
                 {
                     MessageBox.Show("Login failed:\n" + result);
-                    loading = false;
                     return;
                 }
 
                 var jsonResponse = JToken.Parse(result);
 
-                string name = jsonResponse["user"]?["name"]?.ToString();
-                string username = jsonResponse["user"]?["username"]?.ToString();
-                string password = jsonResponse["user"]?["password"]?.ToString();
-                string role = jsonResponse["user"]?["role"]?.ToString();
-                string branch = jsonResponse["user"]?["branch"]?.ToString();
+                Class.Session.Name = jsonResponse["user"]?["name"]?.ToString();
+                Class.Session.Username = jsonResponse["user"]?["username"]?.ToString();
+                Class.Session.Password = jsonResponse["user"]?["password"]?.ToString();
+                Class.Session.Role = jsonResponse["user"]?["role"]?.ToString();
+                Class.Session.Branch = jsonResponse["user"]?["branch"]?.ToString();
 
-                LoadStores();
-                //MessageBox.Show($"Login successful!\nName: {name}\nUsername: {username}\nRole: {role}\nBranch: {branch}");
+                await LoadStores();
 
-                Class.Session.Name = name;
-                Class.Session.Username = username;
-                Class.Session.Password = password;
-                Class.Session.Role = role;
-                Class.Session.Branch = branch;
+                bool itemLoaded = await Class.ItemMasterManager.LoadFromServer();
+
+                if (!itemLoaded)
+                {
+                    
+                }
 
                 SelectFrm selectFrm = new SelectFrm();
                 selectFrm.Show();
@@ -123,7 +121,6 @@ namespace Transfer_app
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
-                loading = false;
             }
             finally
             {

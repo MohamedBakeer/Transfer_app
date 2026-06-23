@@ -150,6 +150,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Class\ItemMasterManager.cs" />
     <Compile Include="Class\Session.cs" />
     <Compile Include="Class\StoreManager.cs" />
     <Compile Include="Class\TransferSession.cs" />
