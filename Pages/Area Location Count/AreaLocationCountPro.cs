@@ -53,19 +53,48 @@ namespace Transfer_app.Pages.Area_Location_Count
             dataGridView1.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         }
 
+        bool isLoadingCombos = false;
+
         void LoadStoresFromClass()
         {
+            isLoadingCombos = true;
+
             guna2ComboBox_location_to_count.Items.Clear();
 
             foreach (var store in Class.StoreManager.StoresMap)
-            {
                 guna2ComboBox_location_to_count.Items.Add(store.Key);
-            }
 
             if (guna2ComboBox_location_to_count.Items.Count > 0)
                 guna2ComboBox_location_to_count.SelectedIndex = 0;
             else
                 MessageBox.Show("لا توجد مخازن محملة. أعد تسجيل الدخول.");
+
+            isLoadingCombos = false;
+        }
+
+        bool ConfirmClearGridIfNeeded()
+        {
+            if (isLoadingCombos)
+                return true;
+
+            if (dataGridView1.Rows.Count == 0)
+                return true;
+
+            DialogResult r = MessageBox.Show(
+                "تغيير الاختيار سيمسح الأصناف التي تم مسحها حالياً.\n\nهل تريد الاستمرار؟",
+                "تنبيه",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning
+            );
+
+            if (r == DialogResult.Yes)
+            {
+                dataGridView1.Rows.Clear();
+                textBox_manully.Clear();
+                return true;
+            }
+
+            return false;
         }
 
         bool IsShowroom()
@@ -80,6 +109,9 @@ namespace Transfer_app.Pages.Area_Location_Count
 
         private async void guna2ComboBox_location_to_count_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (!ConfirmClearGridIfNeeded())
+                return;
+
             if (guna2ComboBox_location_to_count.SelectedItem == null)
                 return;
 
@@ -169,6 +201,9 @@ namespace Transfer_app.Pages.Area_Location_Count
 
         private void guna2ComboBox_Area_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (!ConfirmClearGridIfNeeded())
+                return;
+
             guna2ComboBox_location.Items.Clear();
 
             if (IsShowroom())
