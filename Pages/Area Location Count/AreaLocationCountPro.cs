@@ -2,7 +2,6 @@
 using Newtonsoft.Json.Linq;
 using RestSharp;
 using System;
-using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Threading.Tasks;
@@ -39,11 +38,13 @@ namespace Transfer_app.Pages.Area_Location_Count
 
             dataGridView1.Columns.Add("Barcode", "Barcode");
             dataGridView1.Columns.Add("Qty", "Qty");
+            dataGridView1.Columns.Add("Description", "Description");
+            dataGridView1.Columns.Add("Department", "Department");
             dataGridView1.Columns.Add("Area", "Area");
             dataGridView1.Columns.Add("Location", "Location");
             dataGridView1.Columns.Add("Store", "Store");
 
-            dataGridView1.DefaultCellStyle.Font = new Font("Cairo", 15);
+            dataGridView1.DefaultCellStyle.Font = new Font("Cairo", 13);
             dataGridView1.RowTemplate.Height = 40;
 
             dataGridView1.ReadOnly = true;
@@ -111,6 +112,8 @@ namespace Transfer_app.Pages.Area_Location_Count
 
                 await LoadAreasFromServer(storeCode);
             }
+
+            textBox_barcode.Focus();
         }
 
         async Task LoadAreasFromServer(string storeCode)
@@ -121,6 +124,7 @@ namespace Transfer_app.Pages.Area_Location_Count
                 guna2ComboBox_location.Items.Clear();
 
                 var client = new RestClient("http://102.209.3.101:9500");
+
                 var request = new RestRequest(
                     "/WMSBKR/public/api/AreaLocation/areas/" + storeCode,
                     Method.GET
@@ -139,7 +143,7 @@ namespace Transfer_app.Pages.Area_Location_Count
 
                 if (areas == null || areas.Count == 0)
                 {
-                    MessageBox.Show("لا توجد Areas لهذا المخزن/الصالة.");
+                    MessageBox.Show("لا توجد Areas لهذا المخزن.");
                     return;
                 }
 
@@ -167,6 +171,9 @@ namespace Transfer_app.Pages.Area_Location_Count
         {
             guna2ComboBox_location.Items.Clear();
 
+            if (IsShowroom())
+                return;
+
             AreaComboItem area = guna2ComboBox_Area.SelectedItem as AreaComboItem;
 
             if (area == null)
@@ -179,6 +186,8 @@ namespace Transfer_app.Pages.Area_Location_Count
 
             if (guna2ComboBox_location.Items.Count > 0)
                 guna2ComboBox_location.SelectedIndex = 0;
+
+            textBox_barcode.Focus();
         }
 
         string NormalizeBarcode(string input)
@@ -202,17 +211,45 @@ namespace Transfer_app.Pages.Area_Location_Count
             if (e.KeyCode != Keys.Enter)
                 return;
 
+            e.SuppressKeyPress = true;
+
             string barcode = NormalizeBarcode(textBox_barcode.Text);
 
             if (barcode == "")
                 return;
 
+            if (!Class.ItemMasterManager.IsLoaded)
+            {
+                MessageBox.Show(
+                    "Item Master غير محمل.\nلا يمكن التأكد من الباركودات الآن.\nأعد تسجيل الدخول والسيرفر شغال.",
+                    "تنبيه",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+
+                textBox_barcode.Clear();
+                textBox_barcode.Focus();
+                return;
+            }
+
+            if (!Class.ItemMasterManager.Exists(barcode))
+            {
+                MessageBox.Show(
+                    "❌ هذا الباركود غير موجود في Item Master:\n\n" + barcode,
+                    "Barcode Not Found",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+
+                textBox_barcode.Clear();
+                textBox_barcode.Focus();
+                return;
+            }
+
             AddScan(barcode);
 
             textBox_barcode.Clear();
             textBox_barcode.Focus();
-
-            e.SuppressKeyPress = true;
         }
 
         void AddScan(string barcode)
@@ -223,16 +260,19 @@ namespace Transfer_app.Pages.Area_Location_Count
                 return;
             }
 
-            if (guna2ComboBox_Area.SelectedItem == null)
+            if (!IsShowroom())
             {
-                MessageBox.Show("اختر Area.");
-                return;
-            }
+                if (guna2ComboBox_Area.SelectedItem == null)
+                {
+                    MessageBox.Show("اختر Area.");
+                    return;
+                }
 
-            if (guna2ComboBox_location.SelectedItem == null)
-            {
-                MessageBox.Show("اختر Location.");
-                return;
+                if (guna2ComboBox_location.SelectedItem == null)
+                {
+                    MessageBox.Show("اختر Location.");
+                    return;
+                }
             }
 
             foreach (DataGridViewRow row in dataGridView1.Rows)
@@ -250,14 +290,31 @@ namespace Transfer_app.Pages.Area_Location_Count
                 }
             }
 
+            var item = Class.ItemMasterManager.Get(barcode);
+
             string storeName = guna2ComboBox_location_to_count.Text;
-            AreaComboItem area = guna2ComboBox_Area.SelectedItem as AreaComboItem;
+            string areaText = "";
+            string locationText = "";
+
+            if (IsShowroom())
+            {
+                areaText = item.Department;
+                locationText = "AUTO";
+            }
+            else
+            {
+                AreaComboItem area = guna2ComboBox_Area.SelectedItem as AreaComboItem;
+                areaText = area.Area;
+                locationText = guna2ComboBox_location.Text;
+            }
 
             dataGridView1.Rows.Add(
                 barcode,
                 1,
-                area.Area,
-                guna2ComboBox_location.Text,
+                item.Description,
+                item.Department,
+                areaText,
+                locationText,
                 storeName
             );
         }
@@ -329,13 +386,18 @@ namespace Transfer_app.Pages.Area_Location_Count
                 string storeCode = Class.StoreManager.GetCode(storeName);
 
                 string[] parts = storeName.Split(' ');
-                string branch = parts[0];     // M02
-                string storeType = parts[1];  // WH أو BR
 
-                AreaComboItem selectedArea = guna2ComboBox_Area.SelectedItem as AreaComboItem;
+                if (parts.Length < 2)
+                {
+                    MessageBox.Show("Store name غير صحيح.");
+                    return "";
+                }
 
-                string area = selectedArea.Area;
-                string location = guna2ComboBox_location.Text;
+                string branch = parts[0];
+                string storeType = parts[1];
+
+                string area = IsShowroom() ? "AUTO" : guna2ComboBox_Area.Text;
+                string location = IsShowroom() ? "AUTO" : guna2ComboBox_location.Text;
 
                 string folder = Path.Combine(
                     Application.StartupPath,
@@ -350,7 +412,7 @@ namespace Transfer_app.Pages.Area_Location_Count
 
                 string fileName =
                     storeCode.Replace("-", "") + "___" +
-                    area + "___" +
+                    area.Replace("/", "-") + "___" +
                     "LOC" + location + "___" +
                     DateTime.Now.ToString("yyyy_MM_dd_HH_mm_ss") +
                     ".xlsx";
@@ -369,21 +431,25 @@ namespace Transfer_app.Pages.Area_Location_Count
                     ws.Cell(1, 6).Value = "StoreCode";
                     ws.Cell(1, 7).Value = "CountedBy";
                     ws.Cell(1, 8).Value = "CreatedAt";
+                    ws.Cell(1, 9).Value = "Description";
+                    ws.Cell(1, 10).Value = "Department";
 
-                    int row = 2;
+                    int excelRow = 2;
 
                     foreach (DataGridViewRow dgRow in dataGridView1.Rows)
                     {
-                        ws.Cell(row, 1).Value = dgRow.Cells["Barcode"].Value?.ToString();
-                        ws.Cell(row, 2).Value = dgRow.Cells["Qty"].Value?.ToString();
-                        ws.Cell(row, 3).Value = dgRow.Cells["Area"].Value?.ToString();
-                        ws.Cell(row, 4).Value = dgRow.Cells["Location"].Value?.ToString();
-                        ws.Cell(row, 5).Value = dgRow.Cells["Store"].Value?.ToString();
-                        ws.Cell(row, 6).Value = storeCode;
-                        ws.Cell(row, 7).Value = Class.Session.Username;
-                        ws.Cell(row, 8).Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        ws.Cell(excelRow, 1).Value = dgRow.Cells["Barcode"].Value?.ToString();
+                        ws.Cell(excelRow, 2).Value = dgRow.Cells["Qty"].Value?.ToString();
+                        ws.Cell(excelRow, 3).Value = dgRow.Cells["Area"].Value?.ToString();
+                        ws.Cell(excelRow, 4).Value = dgRow.Cells["Location"].Value?.ToString();
+                        ws.Cell(excelRow, 5).Value = dgRow.Cells["Store"].Value?.ToString();
+                        ws.Cell(excelRow, 6).Value = storeCode;
+                        ws.Cell(excelRow, 7).Value = Class.Session.Username;
+                        ws.Cell(excelRow, 8).Value = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                        ws.Cell(excelRow, 9).Value = dgRow.Cells["Description"].Value?.ToString();
+                        ws.Cell(excelRow, 10).Value = dgRow.Cells["Department"].Value?.ToString();
 
-                        row++;
+                        excelRow++;
                     }
 
                     var info = wb.Worksheets.Add("INFO");
@@ -492,7 +558,6 @@ namespace Transfer_app.Pages.Area_Location_Count
             try
             {
                 string fileName = Path.GetFileName(filePath);
-
                 string storeCodeRaw = fileName.Split(new string[] { "___" }, StringSplitOptions.None)[0];
 
                 string storeCode = "";
@@ -557,7 +622,6 @@ namespace Transfer_app.Pages.Area_Location_Count
             }
         }
 
-
         private void button_Del_All_Click(object sender, EventArgs e)
         {
             if (dataGridView1.Rows.Count == 0)
@@ -597,17 +661,6 @@ namespace Transfer_app.Pages.Area_Location_Count
                 dataGridView1.Rows.Remove(dataGridView1.CurrentRow);
 
             textBox_barcode.Focus();
-        }
-    }
-
-    public class ComboItem
-    {
-        public string Text { get; set; }
-        public string Value { get; set; }
-
-        public override string ToString()
-        {
-            return Text;
         }
     }
 
