@@ -57,7 +57,7 @@ namespace Transfer_app
             guna2ComboBox_Frms.Items.Add("Area Monitor");
             guna2ComboBox_Frms.Items.Add("Inventory Analysis");
 
-            guna2ComboBox_Frms.Items.Add("Pending Upload");
+            //guna2ComboBox_Frms.Items.Add("Pending Upload");
 
             //guna2ComboBox_Frms.Items.Add("Approve Receive Difference");
             //guna2ComboBox_Frms.Items.Add("Adjustment Stock Request");
