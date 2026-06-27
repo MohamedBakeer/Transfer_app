@@ -215,104 +215,115 @@ namespace Transfer_app.Pages.Internal_Transfer
 
         private async void guna2Button_uploadSrv_Click(object sender, EventArgs e)
         {
-            string pendingFolder = Path.Combine(
-                Application.StartupPath,
-                "Pending",
-                Class.Session.Branch
-            );
-
-            if (!Directory.Exists(pendingFolder))
-            {
-                MessageBox.Show("No Pending files.");
+            if (!component.LockButton(guna2Button_uploadSrv))
                 return;
-            }
 
-            string[] files = Directory.GetFiles(pendingFolder, "*.xlsx");
-
-            if (files.Length == 0)
+            try
             {
-                MessageBox.Show("No files to upload.");
-                return;
-            }
+                string pendingFolder = Path.Combine(
+                    Application.StartupPath,
+                    "Pending",
+                    Class.Session.Branch
+                );
 
-            int success = 0;
-            int failed = 0;
-
-            guna2ProgressBar1.Value = 0;
-
-            foreach (string filePath in files)
-            {
-                try
+                if (!Directory.Exists(pendingFolder))
                 {
-                    string type = "";
-                    string fromWhs = "";
-                    string toWhs = "";
-                    string branch = "";
-
-                    using (var wb = new XLWorkbook(filePath))
-                    {
-                        var info = wb.Worksheet("INFO");
-
-                        type = GetInfoValue(info, "Transfer Type").ToLower();
-                        fromWhs = GetInfoValue(info, "From");
-                        toWhs = GetInfoValue(info, "To");
-                        branch = GetInfoValue(info, "Branch");
-                    }
-
-                    var client = new RestClient("http://102.209.3.101:9500");
-
-                    var request = new RestRequest("/WMSBKR/public/api/Transfer/upload", Method.POST);
-                    request.AlwaysMultipartFormData = true;
-
-                    request.AddFile("file", filePath);
-                    request.AddParameter("transfer_type", type);
-                    request.AddParameter("from_whs", fromWhs);
-                    request.AddParameter("to_whs", toWhs);
-                    request.AddParameter("branch", branch);
-                    request.AddParameter("created_by_username", Class.Session.Username);
-                    request.AddParameter("created_by_name", Class.Session.Name);
-
-                    IRestResponse response = await client.ExecuteTaskAsync(request);
-
-                    if (!response.IsSuccessful)
-                    {
-                        failed++;
-                        continue;
-                    }
-
-                    JObject json = JObject.Parse(response.Content);
-                    string transferNo = json["transfer_no"]?.ToString();
-
-                    if (string.IsNullOrEmpty(transferNo))
-                    {
-                        failed++;
-                        continue;
-                    }
-
-                    MoveToArchive(filePath, transferNo, fromWhs, toWhs);
-
-                    success++;
-                }
-                catch
-                {
-                    failed++;
+                    MessageBox.Show("No Pending files.");
+                    return;
                 }
 
-                guna2ProgressBar1.Value = (int)(((double)(success + failed) / files.Length) * 100);
-                Application.DoEvents();
+                string[] files = Directory.GetFiles(pendingFolder, "*.xlsx");
+
+                if (files.Length == 0)
+                {
+                    MessageBox.Show("No files to upload.");
+                    return;
+                }
+
+                int success = 0;
+                int failed = 0;
+
+                guna2ProgressBar1.Value = 0;
+
+                foreach (string filePath in files)
+                {
+                    try
+                    {
+                        string type = "";
+                        string fromWhs = "";
+                        string toWhs = "";
+                        string branch = "";
+
+                        using (var wb = new XLWorkbook(filePath))
+                        {
+                            var info = wb.Worksheet("INFO");
+
+                            type = GetInfoValue(info, "Transfer Type").ToLower();
+                            fromWhs = GetInfoValue(info, "From");
+                            toWhs = GetInfoValue(info, "To");
+                            branch = GetInfoValue(info, "Branch");
+                        }
+
+                        var client = new RestClient("http://102.209.3.101:9500");
+
+                        var request = new RestRequest("/WMSBKR/public/api/Transfer/upload", Method.POST);
+                        request.AlwaysMultipartFormData = true;
+
+                        request.AddFile("file", filePath);
+                        request.AddParameter("transfer_type", type);
+                        request.AddParameter("from_whs", fromWhs);
+                        request.AddParameter("to_whs", toWhs);
+                        request.AddParameter("branch", branch);
+                        request.AddParameter("created_by_username", Class.Session.Username);
+                        request.AddParameter("created_by_name", Class.Session.Name);
+
+                        IRestResponse response = await client.ExecuteTaskAsync(request);
+
+                        if (!response.IsSuccessful)
+                        {
+                            failed++;
+                            continue;
+                        }
+
+                        JObject json = JObject.Parse(response.Content);
+                        string transferNo = json["transfer_no"]?.ToString();
+
+                        if (string.IsNullOrEmpty(transferNo))
+                        {
+                            failed++;
+                            continue;
+                        }
+
+                        MoveToArchive(filePath, transferNo, fromWhs, toWhs);
+
+                        success++;
+                    }
+                    catch
+                    {
+                        failed++;
+                    }
+
+                    guna2ProgressBar1.Value =
+                        (int)(((double)(success + failed) / files.Length) * 100);
+
+                    Application.DoEvents();
+                }
+
+                MessageBox.Show(
+                    "Upload Finished\n\n" +
+                    "Success: " + success + "\n" +
+                    "Failed: " + failed
+                );
 
                 SelectFrm frm = new SelectFrm();
                 frm.Show();
                 this.Close();
             }
-
-            MessageBox.Show(
-                "Upload Finished\n\n" +
-                "Success: " + success + "\n" +
-                "Failed: " + failed
-            );
+            finally
+            {
+                component.UnlockButton(guna2Button_uploadSrv);
+            }
         }
-
         string GetInfoValue(IXLWorksheet ws, string key)
         {
             foreach (var row in ws.RowsUsed())

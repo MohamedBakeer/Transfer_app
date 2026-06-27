@@ -73,7 +73,7 @@ namespace Transfer_app
         void AddBrandManagerForms()
         {
             guna2ComboBox_Frms.Items.Add("Area Location Count");
-            guna2ComboBox_Frms.Items.Add("Area Location Count Pro");
+            //guna2ComboBox_Frms.Items.Add("Area Location Count Pro");
 
             // لاحقاً
             // guna2ComboBox_Frms.Items.Add("Adjustment Stock Request");

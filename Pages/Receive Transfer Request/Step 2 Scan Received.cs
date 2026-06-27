@@ -25,6 +25,10 @@ namespace Transfer_app.Pages.Receive_Transfer_Request
 
             SetupGrid();
 
+            textBox_barcode.KeyDown += textBox_barcode_KeyDown;
+
+            dataGridView1.Click += (s, e) => textBox_barcode.Focus();
+            this.Shown += (s, e) => textBox_barcode.Focus();
         }
 
         private void Step_2_Scan_Received_Load(object sender, EventArgs e)
@@ -37,6 +41,8 @@ namespace Transfer_app.Pages.Receive_Transfer_Request
                 "     TO: " + Class.TransferSession.ToCode;
 
             guna2ProgressBar1.Value = 0;
+
+            textBox_barcode.Focus();
         }
 
         void SetupGrid()
@@ -59,20 +65,24 @@ namespace Transfer_app.Pages.Receive_Transfer_Request
 
         private void textBox_barcode_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Enter)
+            if (e.KeyCode != Keys.Enter)
+                return;
+
+            e.SuppressKeyPress = true;
+
+            string barcode = NormalizeBarcode(textBox_barcode.Text);
+
+            if (barcode == "")
             {
-                string barcode = NormalizeBarcode(textBox_barcode.Text);
-
-                if (barcode == "")
-                    return;
-
-                AddScan(barcode);
-
                 textBox_barcode.Clear();
                 textBox_barcode.Focus();
-
-                e.SuppressKeyPress = true;
+                return;
             }
+
+            AddScan(barcode);
+
+            textBox_barcode.Clear();
+            textBox_barcode.Focus();
         }
 
         void AddScan(string barcode)
@@ -306,7 +316,7 @@ namespace Transfer_app.Pages.Receive_Transfer_Request
 
                 MessageBox.Show(
                     "❌ NOT MATCH\n\n" +
-                    "تم حفظ التقرير محلياً:\n" + reportPath + "\n\n" +
+                    //"تم حفظ التقرير محلياً:\n" + reportPath + "\n\n" +
                     "تم تحديث حالة الطلب إلى received_not_match."
                 );
             }
